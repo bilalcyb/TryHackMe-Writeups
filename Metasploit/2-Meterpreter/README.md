@@ -794,12 +794,17 @@ What is the NTLM hash of the jchambers user?
 **Answer:** 69596c7aa1e8daee17f8e78870e25a5c
 
 List the running process: ps
+
 ![image](https://github.com/user-attachments/assets/afe73c5e-98b4-486c-ab51-c7f76087217f)
 
 according to the hint you have to migrate to lsass.exe
+
+
 ![image](https://github.com/user-attachments/assets/bdc2515f-1ce3-4267-b9e5-438c0dfc10a8)
 
+
 Run the command hashdump:
+
 ![image](https://github.com/user-attachments/assets/0414dc18-6a4f-4664-9169-4eeeb021f2fb)
 
 
@@ -835,6 +840,8 @@ What is the Twitter password revealed in the "secrets.txt" file?
 **Answer:** KDSvbsw3849!
 
 use cat command
+
+
 ![image](https://github.com/user-attachments/assets/b5f09bcf-4630-4dfd-ba36-21d17168792b)
 
 
