@@ -1,4 +1,4 @@
-# What the Shell?
+# What is Shell?
 An introduction to sending and receiving (reverse/bind) shells when exploiting target machines.
 
 ## Task 1 What is a shell?
